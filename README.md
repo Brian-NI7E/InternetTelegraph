@@ -1,5 +1,24 @@
 # The One-Button Internet Telegraph
 
+### Updates made by Explorer Post 599
+11-Nov-2017
+- The client has been rewritten to reduce latencies between stations.  When operation multiple clients in the same room, the time differences between them created a cancofony of sounds.
+- Modified the server reconnect to silently reconnect if it could be done quickly.  Longer disconnects and reconnects will still notifiy the user.
+-- short server disconnects and reconnects happen silently
+-- 8 dits signify long server disconnects
+-- 2 dits signify the server has reconnected after a long disconnect
+- Reorganized the code and added channels for interprocess communications
+
+TODO
+- Allow mixing of multiple senders.  On the radio, multiple people might start sending at the same time.  By counting the 'keydown' and 'keyup' events, the tone should play until all senders stop sending.
+- Add timeout to prevent infinite 'keydown'.  For example if someone start sending a tone, then loses their connection to the server, all client would continue to play a tone.
+-- currently pressing an releasing your telegraph key should stop the tone locally.
+- Allow Morse code playback speed to be set in the json file.
+- Allow interruption of code playback by pressing the key.
+- Organize the main loop as a scheduler based on frequency tasks need to run
+- 
+
+## Original REAME.md by Autodidacts
 The easiest way to install the internet telegraph client is to use our pre-built SD card image: just download it from the [releases page](https://github.com/TheAutodidacts/InternetTelegraph/releases) and follow the installation instructions in the build tutorial.
 
 But some of you may way want to tinker with the code, or have already have Raspbian installed and configured, and want to run the telegraph from within your existing installation. If that sounds like you, read on!
