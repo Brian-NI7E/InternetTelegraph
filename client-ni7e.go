@@ -15,7 +15,8 @@ import (
 
 
 const keyPinBCM     = 07    // keyPinNumber        = 26
-const spkrPinBCM    = 10    // spkrPinNumber       = 19
+const spkrPinBCM    = 10    // spkrPinNumber       = 19 active high
+const spkrPinBCML   = 27    // spkrPinNumberL      = 13 active low
 
 // operation constants
 const (
@@ -53,8 +54,9 @@ type morseKey struct {
 
 
 type tone struct {
-    spkrPin rpio.Pin
-    command rpio.State
+    spkrPin     rpio.Pin    // active high
+    spkrPinL    rpio.Pin    // active low
+    command     rpio.State
 }
 
 
@@ -124,8 +126,10 @@ func initializeRpio() int {
 
 
 func intitializeToneState(ts tone) tone {
-    ts.spkrPin = rpio.Pin(10)  // spkrPinBCM)
+    ts.spkrPin = rpio.Pin(spkrPinBCM)
+    ts.spkrPinL = rpio.Pin(spkrPinBCML)
     ts.spkrPin.Output()
+    ts.spkrPinL.Output()
     ts.command  = rpio.Low      // turn off the tone
 
     return ts
@@ -228,6 +232,11 @@ func (t *tone) control(c chan rpio.State) {
     for {
         command = <-c
         t.spkrPin.Write(command)
+        if command == rpio.High {
+            t.spkrPinL.Write(rpio.Low)
+        } else {
+            t.spkrPinL.Write(rpio.High)
+        }
     }
 }
 
