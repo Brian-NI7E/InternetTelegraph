@@ -29,7 +29,9 @@ const (
 
 
 var (
-    buildVersion    string  // go build -ldflags "-X main.buildVersion=<version info> ...
+    // TODO create build script to assign buildVesion
+    // go build -ldflags "-X main.buildVersion=<version info> ...
+    buildVersion    string
     toneState       tone
     key             morseKey
 
@@ -46,6 +48,7 @@ type Config struct {
 }
 
 
+
 type morseKey struct {
     state   string
     keyPin  rpio.Pin
@@ -60,6 +63,7 @@ type tone struct {
 }
 
 
+
 type socketClient struct {
     ip          string
     port        string
@@ -71,6 +75,7 @@ type socketClient struct {
 }
 
 
+
 const(
     SC_NOT_STARTED  = "not started"
     SC_DISCONNECTED = "disconnected"
@@ -80,6 +85,18 @@ const(
 
 
 
+/**
+ * Reads configuration information from a file.
+ *
+ * The hardcoded file name 'config.json' is open and read to
+ * populate the 'Config' data structure.  If reading or decoding
+ * the file fails, the following default values are used:
+ *      Channel = "lobby"
+ *      Server  = "morse.autodidacts.io"
+ *      Port    = "8000"
+ *
+ * @ return Config  structure containing application parameters
+ */
 func getConfiguration() (Config) {
 
     // allow for future feature of using an OS environment variable, for not, we hardcode it
@@ -88,6 +105,7 @@ func getConfiguration() (Config) {
     decoder := json.NewDecoder(file)
 
     // allow for future feature of using alternate input methods
+    // TODO remove Gpio from Config - it is no longer used
     config  := Config{Gpio: true}
 
     // read application configuration from the TELEGRAPH_CONFIG_PATH file
@@ -105,6 +123,15 @@ func getConfiguration() (Config) {
 }
 
 
+
+/**
+ * Initialized the Rpio library.
+ * Assign the rpio hardware pin to the variable keyPin.
+ * Configure the keyPin as an input.
+ * Enable the pull up on the keyPin.
+ *
+ * @return  int result code indicating success or failure
+ */
 func initializeRpio() int {
 
     var result int  = 0
@@ -125,6 +152,13 @@ func initializeRpio() int {
 }
 
 
+
+/**
+ * Set the initial values for the tone state data structure.
+ *
+ * @param   ts  'tone' data structure to use
+ * @return  ts  the updated 'tone' data structure
+ */
 func intitializeToneState(ts tone) tone {
     ts.spkrPin = rpio.Pin(spkrPinBCM)
     ts.spkrPinL = rpio.Pin(spkrPinBCML)
@@ -136,10 +170,17 @@ func intitializeToneState(ts tone) tone {
 }
 
 
+
+/**
+ * Configure the network socket client library
+ *
+ * @param   config  configuration settings
+ * @return  sc      socket client handle
+ */
 func initializeSocketClient(config Config) socketClient {
     // Init socketClient & dial websocket
-    sc := socketClient{ ip: config.Server, 
-                        port: config.Port, 
+    sc := socketClient{ ip: config.Server,
+                        port: config.Port,
                         channel: config.Channel,
                         status: SC_NOT_STARTED,
                         redialCount: 0}
@@ -158,6 +199,16 @@ func initializeSocketClient(config Config) socketClient {
 }
 
 
+
+/**
+ * Connect to the internet-telegraph server
+ *
+ * @parent  sc      this function is associated with the
+ *                  socketClient structure
+ * @param   c       the go communication channel
+ * @param   state   type of data in the channel
+ */
+// TODO remove the channel as it is not being used anymore
 func (sc *socketClient) dial(c chan rpio.State) {
     fmt.Println("Dialing ",  sc.url)
 
@@ -178,6 +229,16 @@ func (sc *socketClient) dial(c chan rpio.State) {
 
 
 
+/**
+ * Send a string to the internet-telegraph server
+ *
+ * If sending fails, update the status to allow the caller
+ * to attempt a reconnect if desired.
+ *
+ * @parent  sc      this function is associated wi the
+ *                  socketClient structure
+ * @param   msg     string contains data to be sent
+ */
 func (sc    *socketClient) sendMsg(msg string) {
     fmt.Print("Sending: ")
     fmt.Println(msg)
@@ -194,7 +255,18 @@ func (sc    *socketClient) sendMsg(msg string) {
 
 
 
-
+/**
+ * Goroutine to listen for messages from the internet-telegraph server
+ *
+ * Goroutines are a lightweight thread of execution.  That means that
+ * once started, the routine continues to run without needing to be
+ * called by the main loop.
+ *
+ * @parent  sc      this function is associated wi the
+ *                  socketClient structure
+ * @param   c       the go communication channel
+ * @param   state   type of data in the channel
+ */
 func (sc *socketClient) listen(c chan rpio.State) {
     fmt.Println("Client listening...")
     var msg string
@@ -224,7 +296,18 @@ func (sc *socketClient) listen(c chan rpio.State) {
 
 
 
-
+/**
+ * Goroutine to control whether the Morse code sounder should make a sound.
+ *
+ * Goroutines are a lightweight thread of execution.  That means that
+ * once started, the routine continues to run without needing to be
+ * called by the main loop.
+ *
+ * @parent  t       this function is associated wi the
+ *                  tone structure
+ * @param   c       the go communication channel
+ * @param   state   type of data in the channel
+ */
 func (t *tone) control(c chan rpio.State) {
     // TODO add timeout to key down messages from server
     // TOOD allow local key down to run forever ???
@@ -243,6 +326,16 @@ func (t *tone) control(c chan rpio.State) {
 
 
 
+/**
+ * Goroutine to time the sounding of 'dit', 'dah', and space characters.
+ *
+ * Goroutines are a lightweight thread of execution.  That means that
+ * once started, the routine continues to run without needing to be
+ * called by the main loop.
+ *
+ * @param   c       the go communication channel
+ * @param   state   type of data in the channel
+ */
 func playMorseElements(message string, c chan rpio.State) {
     // TODO allow config.json file to configure the speed
     // TODO allow optional interruption of message
@@ -268,12 +361,17 @@ func playMorseElements(message string, c chan rpio.State) {
         }
 
         c <- sound              // start sounding the element
-        time.Sleep(elementLength * ditTime)    
+        time.Sleep(elementLength * ditTime)
         c <- rpio.Low           // stop sounding the element
         time.Sleep(ditTime)     // add space between elements
 
     }
 }
+
+
+
+
+// TODO repurpose this to encode strings into Morse code.
 func playMorse(message string, c chan rpio.State) {
     // TODO allow config.json file to configure the speed
     speed := time.Duration(50)
@@ -299,8 +397,11 @@ func playMorse(message string, c chan rpio.State) {
 
 
 
-
-
+/**
+ * Convert the UnixNano, nanosecond timer value to microseconds.
+ *
+ * @return  int64   value of operating system timer in microseconds
+ */
 func microseconds() int64 {
     t := time.Now().UnixNano()
     us := t / int64(time.Microsecond)
@@ -310,44 +411,78 @@ func microseconds() int64 {
 
 
 
-
-
+/**
+ * The main function.
+ */
 func main() {
+    /**
+     * Inform the user that the program has started
+     */
     fmt.Println("internet-telegraph starting - version", buildVersion)
 
+
+    /**
+     * Create local variables.
+     */
     var keyValue rpio.State
     var lastKeyValue rpio.State  = rpio.High    // will a pull up un press = High
     var keyToken string = "0"                   // default to no tone
     var loopCount   int = 0
 
 
+    /**
+     * Get the application configuration information
+     */
     config  := getConfiguration()
 
-    initializeRpio()
-    defer rpio.Close()      // close and cleanup rpio when main closes
 
-    toneState   = intitializeToneState(toneState)
-    toneControl := make(chan rpio.State)
-    go toneState.control( toneControl)
-
-    serverSocket  := initializeSocketClient(config)
-    fmt.Println("SocketClient: ", serverSocket)   // TODO: remove this line
+    /**
+     * Initialize the hardware.
+     */
+    initializeRpio()                            // Initialize the Raspberry Pi IO library
+    defer rpio.Close()                          // close and cleanup rpio when main closes
 
 
-    serverSocket.dial( toneControl)       // establish connection to server
+
+    /**
+     * Initialize the application elements.
+     */
+    toneState       =   intitializeToneState(toneState)
+    toneControl     :=  make(chan rpio.State)   // create channel to communicate with tone
+    go toneState.control( toneControl)          // launch toneState.control Goroutine
+    serverSocket    :=  initializeSocketClient(config)
+    serverSocket.dial( toneControl)             // establish connection to server
+
     if SC_CONNECTED == serverSocket.status {
-        playMorseElements(".--. --- ... - ..... ----. ----.", toneControl)
+        playMorseElements(".--. --- ... - ..... ----. ----.", toneControl)  // play "POST599"
     }
 
-    go serverSocket.listen(toneControl)
+    go serverSocket.listen(toneControl)         // launch serverSocket.listen Goroutine
 
+
+
+
+    /**
+     * Start the main application loop.  This loop runs forever.
+     */
     for {
         // TODO organize main loop as a scheduler
-
         // This section of the main loop runs everytime
         // This section of the main loop runs every 5 seconds
         // This section of the main loop runs every 30 seconds
 
+
+        /**
+         * Verify the connection to the internet-telegraph server
+         * Reconnect to the server is required.
+         *
+         * Attempt several immediate 'silent' reconnects.  If these fail to
+         * reconnect the server, attempt reconnets at a slower rate.  Signify
+         * a successful reconnect by playing 'dit dit' on the Morse code
+         * sounder.  If the server remains disconnected for an extended
+         * period of time, inform the user my playing (8) 'dits' on the Morse
+         * code sounder.
+         */
         if SC_CONNECTED != serverSocket.status {
             // attempt to redial
             serverSocket.redialCount++
@@ -376,9 +511,11 @@ func main() {
             }
         }
 
-        // ==================================
-        // check the Morse code key input pin
-        // ==================================
+
+        /**
+         * Poll the Morse code key input and determine if its state has changed.
+         * if the state has changed, start or stop the tone on the Morse code sounder.
+         */
         keyValue = key.keyPin.Read()
         if( keyValue != lastKeyValue) {
             lastKeyValue = keyValue
@@ -395,10 +532,21 @@ func main() {
             msg := keyToken + timestamp + "v2"
             serverSocket.sendMsg(msg)
         }
+
+
+        /**
+         * Allow the application to sleep.  This allows other computer to perform
+         * other tasks, and reduces the amount of energy used.
+         */
         time.Sleep(10 * time.Millisecond)
         if 0 == loopCount % mainLoop30Sec {
             serverSocket.sendMsg("ping")
         }
+
+
+        /**
+         * Increment the loop control counter
+         */
         loopCount++
     }
 
