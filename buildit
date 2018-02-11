@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# Internet Telegraph build script
+#
+# Author: Explorer Post 599
+# Creation date:    10-Feb-2018
+#
+# go build script to set buildVersion based on buld time
+#
+
+ver=`date +v2-%Y-%m-%d-%H%M%SMST`
+echo version = $ver
+export GOOS=linux
+export GOARCH=arm
+go build -ldflags "-X main.buildVersion=$ver" -o internet-telegraph-ni7e client-ni7e.go
+
