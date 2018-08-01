@@ -239,20 +239,25 @@ func (sc *socketClient) dial(c chan rpio.State) {
  *                  socketClient structure
  * @param   msg     string contains data to be sent
  */
-func (sc    *socketClient) sendMsg(msg string) {
-    fmt.Print("Sending: ")
-    fmt.Println(msg)
-    fmt.Println("---------------")
-    sendErr := websocket.Message.Send(sc.conn, msg)
-    if sendErr != nil {
-        sc.status = SC_DISCONNECTED
-        fmt.Print("sc.conn send: ")
-        fmt.Println(sc.conn)
-        fmt.Println("Could not send message:")
-        fmt.Println(sendErr.Error())
-    }
-}
+ func (sc    *socketClient) sendMsg(msg string) {
+     fmt.Print("Sending: ")
+     fmt.Println(msg)
+     fmt.Println("---------------")
+     if sc.conn != nil {
 
+         sendErr := websocket.Message.Send(sc.conn, msg)
+         if sendErr != nil {
+             sc.status = SC_DISCONNECTED
+             fmt.Print("sc.conn send: ")
+             fmt.Println(sc.conn)
+             fmt.Println("Could not send message:")
+             fmt.Println(sendErr.Error())
+         }
+     } else {
+         fmt.Println("Network error: sc.conn NOT initialized")
+     }
+
+ }
 
 
 /**
